@@ -8,6 +8,7 @@
 #include <fcntl.h>
 #include <limits.h>
 #include <ctype.h>
+#define MSG_SIZE (PIPE_BUF - sizeof(pid_t))
 
 void usage(void){
 	fprintf(stderr,"USAGE: server fifo_file\n");
@@ -27,9 +28,46 @@ int64_t  bulk_read(int fd, char *buf, size_t count){
 	return len ;
 }
 
+int64_t  bulk_write(int fd, char *buf, size_t count){
+	int c;
+	size_t len=0;
+	do{
+		c=TEMP_FAILURE_RETRY(write(fd,buf,count));
+		if(c<0) return c;
+		buf+=c;
+		len+=c;
+		count-=c;
+	}while(count>0);
+	return len ;
+}
+
+size_t filter_buffer(char* buf, int len) {
+	size_t i,j;
+	for(i=j=0;i<len;i++)
+		if(isalnum(buf[i])) buf[j++]=buf[i];
+	return j;
+}
+
+void append_to_file (char *filename,char *buf, size_t len){
+	int fd;
+	if((fd=TEMP_FAILURE_RETRY(open(filename,O_WRONLY|O_APPEND|O_CREAT,S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP)))<0){
+			perror("Open file:");
+			exit(EXIT_FAILURE);
+	}
+	if(bulk_write(fd,buf,len)<0){
+		perror("Write:");
+		exit(EXIT_FAILURE);
+	}
+	if(TEMP_FAILURE_RETRY(close(fd))<0){
+			perror("Close file:");
+			exit(EXIT_FAILURE);
+	}
+}
+
 void read_from_fifo(int fifo){
 	int64_t  count, i;
 	char buffer[PIPE_BUF];
+	char fname[20];
 	do{
 		count=bulk_read(fifo,buffer,PIPE_BUF);
 		if(count<0){
@@ -37,13 +75,9 @@ void read_from_fifo(int fifo){
 			exit(EXIT_FAILURE);
 		}
 		if(count>0){
-			printf("\nPID:%d-------------------------------------\n",*((pid_t*)buffer)); //this is not low level IO
-			for(i=sizeof(pid_t);i<PIPE_BUF;i++)
-				if(isalnum(buffer[i]))
-						if(TEMP_FAILURE_RETRY(write(STDOUT_FILENO,buffer+i,1))<0){
-						perror("Write:");
-						exit(EXIT_FAILURE);
-						}
+			snprintf(fname,20,"%d.txt",*((pid_t*)buffer));
+			i=filter_buffer(buffer+sizeof(pid_t),MSG_SIZE);
+			append_to_file(fname,buffer+sizeof(pid_t),i);
 		}
 	}while(count==PIPE_BUF);
 }
@@ -64,9 +98,13 @@ int main(int argc, char** argv) {
 			perror("Open fifo:");
 			exit(EXIT_FAILURE);
 	}
-	read_from_fifo(fifo);	
+	read_from_fifo(fifo);
 	if(TEMP_FAILURE_RETRY(close(fifo))<0){
 			perror("Close fifo:");
+			exit(EXIT_FAILURE);
+	}
+	if(unlink(argv[1])<0){
+			perror("Remove fifo:");
 			exit(EXIT_FAILURE);
 	}
 	return EXIT_SUCCESS;

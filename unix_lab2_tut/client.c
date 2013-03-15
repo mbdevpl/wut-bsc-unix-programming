@@ -7,11 +7,25 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <limits.h>
+#include <signal.h>
 #include <string.h>
 #define MSG_SIZE (PIPE_BUF - sizeof(pid_t))
 
 void usage(void){
 	fprintf(stderr,"USAGE: client fifo_file file \n");
+}
+
+int sethandler( void (*f)(int), int sigNo) {
+	struct sigaction act;
+	memset(&act, 0, sizeof(struct sigaction));
+	act.sa_handler = f;
+	if (-1==sigaction(sigNo, &act, NULL))
+		return -1;
+	return 0;
+}
+
+void pipe_handler(int sig) {
+	printf("[%d] received SIGPIPE and must terminate.\n", getpid());
 }
 
 int64_t  bulk_read(int fd, char *buf, size_t count){
@@ -47,7 +61,7 @@ void write_to_fifo(int fifo, int file){
 	char *buf;
 	*((pid_t *)buffer)=getpid();
 	buf=buffer+sizeof(pid_t);
-	
+
 	do{
 		count=bulk_read(file,buf,MSG_SIZE);
 		if(count<0){
@@ -84,7 +98,11 @@ int main(int argc, char** argv) {
 			perror("Open file:");
 			exit(EXIT_FAILURE);
 	}
-	write_to_fifo(fifo,file);	
+	if(sethandler(pipe_handler,SIGPIPE)) {
+		perror("Seting SIGPIPE:");
+		exit(EXIT_FAILURE);
+	}
+	write_to_fifo(fifo,file);
 	if(TEMP_FAILURE_RETRY(close(file))<0){
 			perror("Close file:");
 			exit(EXIT_FAILURE);
