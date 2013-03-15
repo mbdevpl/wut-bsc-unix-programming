@@ -75,6 +75,7 @@ void read_from_fifo(int fifo){
 			exit(EXIT_FAILURE);
 		}
 		if(count>0){
+			printf("writing to %d.txt\n",*((pid_t*)buffer));
 			snprintf(fname,20,"%d.txt",*((pid_t*)buffer));
 			i=filter_buffer(buffer+sizeof(pid_t),MSG_SIZE);
 			append_to_file(fname,buffer+sizeof(pid_t),i);
@@ -94,15 +95,19 @@ int main(int argc, char** argv) {
 			perror("Create fifo:");
 			exit(EXIT_FAILURE);
 		}
-	if((fifo=TEMP_FAILURE_RETRY(open(argv[1],O_RDONLY)))<0){
-			perror("Open fifo:");
-			exit(EXIT_FAILURE);
+	do
+	{
+		if((fifo=TEMP_FAILURE_RETRY(open(argv[1],O_RDONLY)))<0){
+				perror("Open fifo:");
+				exit(EXIT_FAILURE);
+		}
+		read_from_fifo(fifo);
+		if(TEMP_FAILURE_RETRY(close(fifo))<0){
+				perror("Close fifo:");
+				exit(EXIT_FAILURE);
+		}
 	}
-	read_from_fifo(fifo);
-	if(TEMP_FAILURE_RETRY(close(fifo))<0){
-			perror("Close fifo:");
-			exit(EXIT_FAILURE);
-	}
+	while(1);
 	if(unlink(argv[1])<0){
 			perror("Remove fifo:");
 			exit(EXIT_FAILURE);

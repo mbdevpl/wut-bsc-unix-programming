@@ -102,6 +102,7 @@ int main(int argc, char** argv) {
 		perror("Seting SIGPIPE:");
 		exit(EXIT_FAILURE);
 	}
+	printf("writing...\n");
 	write_to_fifo(fifo,file);
 	if(TEMP_FAILURE_RETRY(close(file))<0){
 			perror("Close file:");
@@ -111,5 +112,6 @@ int main(int argc, char** argv) {
 			perror("Close fifo:");
 			exit(EXIT_FAILURE);
 	}
+	printf("done.\n");
 	return EXIT_SUCCESS;
 }
