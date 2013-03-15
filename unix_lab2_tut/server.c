@@ -6,27 +6,46 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <limits.h>
+#include <ctype.h>
 
 void usage(void){
 	fprintf(stderr,"USAGE: server fifo_file\n");
 }
 
-void read_from_fifo(int fifo){
-	ssize_t count;
-	char c;
+int64_t  bulk_read(int fd, char *buf, size_t count){
+	int c;
+	size_t len=0;
 	do{
-		count=TEMP_FAILURE_RETRY(read(fifo,&c,1));
+		c=TEMP_FAILURE_RETRY(read(fd,buf,count));
+		if(c<0) return c;
+		if(c==0) return len; //EOF
+		buf+=c;
+		len+=c;
+		count-=c;
+	}while(count>0);
+	return len ;
+}
+
+void read_from_fifo(int fifo){
+	int64_t  count, i;
+	char buffer[PIPE_BUF];
+	do{
+		count=bulk_read(fifo,buffer,PIPE_BUF);
 		if(count<0){
 			perror("Read:");
 			exit(EXIT_FAILURE);
 		}
 		if(count>0){
-			if(TEMP_FAILURE_RETRY(write(STDOUT_FILENO,&c,1))<0){
-			perror("Write:");
-			exit(EXIT_FAILURE);
-			}
+			printf("\nPID:%d-------------------------------------\n",*((pid_t*)buffer)); //this is not low level IO
+			for(i=sizeof(pid_t);i<PIPE_BUF;i++)
+				if(isalnum(buffer[i]))
+						if(TEMP_FAILURE_RETRY(write(STDOUT_FILENO,buffer+i,1))<0){
+						perror("Write:");
+						exit(EXIT_FAILURE);
+						}
 		}
-	}while(count>0);
+	}while(count==PIPE_BUF);
 }
 
 int main(int argc, char** argv) {

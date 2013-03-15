@@ -8,12 +8,13 @@
 #include <fcntl.h>
 #include <limits.h>
 #include <string.h>
+#define MSG_SIZE (PIPE_BUF - sizeof(pid_t))
 
 void usage(void){
 	fprintf(stderr,"USAGE: client fifo_file file \n");
 }
 
-int64_t bulk_read(int fd, char *buf, size_t count){
+int64_t  bulk_read(int fd, char *buf, size_t count){
 	int c;
 	size_t len=0;
 	do{
@@ -27,7 +28,7 @@ int64_t bulk_read(int fd, char *buf, size_t count){
 	return len ;
 }
 
-int64_t bulk_write(int fd, char *buf, size_t count){
+int64_t  bulk_write(int fd, char *buf, size_t count){
 	int c;
 	size_t len=0;
 	do{
@@ -41,22 +42,26 @@ int64_t bulk_write(int fd, char *buf, size_t count){
 }
 
 void write_to_fifo(int fifo, int file){
-	int64_t count;
-	char buf[PIPE_BUF];
+	int64_t  count;
+	char buffer[PIPE_BUF];
+	char *buf;
+	*((pid_t *)buffer)=getpid();
+	buf=buffer+sizeof(pid_t);
+	
 	do{
-		count=bulk_read(file,buf,PIPE_BUF);
+		count=bulk_read(file,buf,MSG_SIZE);
 		if(count<0){
 			perror("Read:");
 			exit(EXIT_FAILURE);
 		}
-		if(count < PIPE_BUF) memset(buf+count,0,PIPE_BUF-count);
+		if(count < MSG_SIZE) memset(buf+count,0,MSG_SIZE-count);
 		if(count>0){
-			if(bulk_write(fifo,buf,PIPE_BUF)<0){
+			if(bulk_write(fifo,buffer,PIPE_BUF)<0){
 			perror("Write:");
 			exit(EXIT_FAILURE);
 			}
 		}
-	}while(count==PIPE_BUF);
+	}while(count==MSG_SIZE);
 }
 
 int main(int argc, char** argv) {

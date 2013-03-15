@@ -31,5 +31,7 @@ Thumbs.db
 /os_lab3/receiver
 
 /unix_lab1_tut2/signals
+/unix_lab1/signals
 /unix_lab1_fix/program
-
+/unix_lab2_tut/client
+/unix_lab2_tut/server
