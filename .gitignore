@@ -2,6 +2,7 @@
 
 # Qt Creator
 *.user
+*.user.2.5pre1
 
 # Linux
 *.o
@@ -11,6 +12,7 @@
 # Windows
 Thumbs.db
 *.obj
+*.zip
 
 # Mac OS
 .DS_Store
@@ -27,4 +29,7 @@ Thumbs.db
 /os_lab2_retake/com
 /os_lab3/sender
 /os_lab3/receiver
+
+/unix_lab1_tut2/signals
+/unix_lab1_fix/program
 
