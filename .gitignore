@@ -1,0 +1,30 @@
+# files that should be ignored by git
+
+# Qt Creator
+*.user
+
+# Linux
+*.o
+*.tar.gz
+*~
+
+# Windows
+Thumbs.db
+*.obj
+
+# Mac OS
+.DS_Store
+
+# build dirs
+/build*
+
+# executables
+/os_lab1/prog
+/os_lab2_tut2/client
+/os_lab2_tut2/server
+/os_lab2/clnt
+/os_lab2/serv
+/os_lab2_retake/com
+/os_lab3/sender
+/os_lab3/receiver
+
