@@ -6,4 +6,3 @@ server: server.c
 .PHONY: clean
 clean:
 	rm client server
-
