@@ -3,12 +3,13 @@ CONFIG += console
 CONFIG -= app_bundle
 CONFIG -= qt
 
-TARGET = fifos
+TARGET = program
 
 SOURCES += \
-	fifos.c
+	lab2.c \
 
-HEADERS += \
-	mbdev_unix.h \
+#HEADERS += \
+#	mbdev_unix.h \
+#	common.h \
 
 OTHER_FILES += Makefile

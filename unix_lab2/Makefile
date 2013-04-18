@@ -1,8 +1,6 @@
-all: client server
-client: client.c	
-	gcc -Wall -o client client.c
-server: server.c	
-	gcc -Wall -o server server.c
+all: fifos
+fifos: fifos.c
+	gcc -Wall -o fifos fifos.c
 .PHONY: clean
 clean:
-	rm client server
+	rm fifos

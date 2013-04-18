@@ -23,17 +23,6 @@
 #include <unistd.h>
 #include <string.h>
 
-#include <unistd.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <errno.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <limits.h>
-#include <signal.h>
-#include <string.h>
-
 void reverse(char* s);
 const char* itoa(int n, char* s);
 int setSigHandler( void (*f)(int), int sigNo);
@@ -205,63 +194,5 @@ const char* sigToStr(int sig)
 }
 
 #undef IFEQUAL_VARNAMETOSTR
-
-int64_t  bulk_read(int fd, char *buf, size_t count){
-	int c;
-	size_t len=0;
-	do{
-		c=TEMP_FAILURE_RETRY(read(fd,buf,count));
-		if(c<0) return c;
-		if(c==0) return len; //EOF
-		buf+=c;
-		len+=c;
-		count-=c;
-	}while(count>0);
-	return len ;
-}
-
-int64_t  bulk_write(int fd, char *buf, size_t count){
-	int c;
-	size_t len=0;
-	do{
-		c=TEMP_FAILURE_RETRY(write(fd,buf,count));
-		if(c<0) return c;
-		buf+=c;
-		len+=c;
-		count-=c;
-	}while(count>0);
-	return len ;
-}
-
-void makefifo(char* arg) {
-	if(mkfifo(arg, S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP)<0)
-		if(errno!=EEXIST){
-			perror("Create fifo");
-			exit(EXIT_FAILURE);
-		}
-}
-
-int openfifo(char* arg, int flags) {
-	int fifo;
-	if((fifo=TEMP_FAILURE_RETRY(open(arg,flags)))<0){
-			perror("Open fifo");
-			exit(EXIT_FAILURE);
-	}
-	return fifo;
-}
-
-void closefifo(int fifo) {
-	if(TEMP_FAILURE_RETRY(close(fifo))<0){
-			perror("Close fifo");
-			exit(EXIT_FAILURE);
-	}
-}
-
-void unlinkfifo(char* arg) {
-	if(unlink(arg)<0){
-			perror("Remove fifo");
-			exit(EXIT_FAILURE);
-	}
-}
 
 #endif // MBDEV_UNIX_H
