@@ -6,7 +6,8 @@ CONFIG -= qt
 TARGET = fifos
 
 SOURCES += \
-	fifos.c
+	fifos.c \
+    mbdev_unix.c
 
 HEADERS += \
 	mbdev_unix.h \

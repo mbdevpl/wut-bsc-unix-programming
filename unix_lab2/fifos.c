@@ -27,7 +27,6 @@ void usage(void)
 	fprintf(stderr,"USAGE: param1 param2 ... paramN \n where N is in [1..100]\n");
 }
 
-
 //void pipe_handler(int sig) {
 //	printf("[%d] received SIGPIPE and must terminate.\n", getpid());
 //}
@@ -95,7 +94,7 @@ void child_work(int fifo, int64_t count)
 
 	//do{
 		for(i=0;i<count;++i)
-			buf[i] = (char)(rand()%(90-65+1)+65);
+         buf[i] = (char)(rand()%('z'-'a')+'a');
 
 		if(DEBUG_OUT) fprintf(stderr,"will write %s\n", buf);
 
