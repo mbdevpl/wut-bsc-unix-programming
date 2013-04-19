@@ -10,6 +10,7 @@
 #include <sys/un.h>
 #include <signal.h>
 #include <netdb.h>
+#include <pthread.h>
 #define ERR(source) (perror(source),\
 			  fprintf(stderr,"%s:%d\n",__FILE__,__LINE__),\
 			  exit(EXIT_FAILURE))
@@ -19,6 +20,15 @@
 
 #define CHUNKSIZE 500
 #define NMMAX 30
+
+typedef struct
+{
+	struct sockaddr_in *addr;
+	pthread_mutex_t *mutex;
+	char file[NMMAX + 1];
+} thread_arg;
+
+volatile sig_atomic_t work = 1;
 
 void usage(char *name)
 {
@@ -34,6 +44,11 @@ void sethandler(void (*f)(int), int sigNo)
 
 	if (-1 == sigaction(sigNo, &act, NULL))
 		ERR("sigaction");
+}
+
+void siginthandler(int sig)
+{
+	work = 0;
 }
 
 ssize_t bulk_read(int fd, char *buf, size_t count)
@@ -101,13 +116,11 @@ struct sockaddr_in make_address(char *address, uint16_t port)
 	return addr;
 }
 
-int connect_socket(char *name, uint16_t port)
+int connect_socket(struct sockaddr_in *addr)
 {
-	struct sockaddr_in addr;
 	int socketfd;
 	socketfd = make_socket();
-	addr = make_address(name, port);
-	if (connect(socketfd, (struct sockaddr *) &addr, sizeof(struct sockaddr_in)) < 0)
+	if (connect(socketfd, (struct sockaddr *) addr, sizeof(struct sockaddr_in)) < 0)
 	{
 		if (errno != EINTR)
 			ERR("connect");
@@ -126,36 +139,77 @@ int connect_socket(char *name, uint16_t port)
 				ERR("connect");
 		}
 	}
+
 	return socketfd;
 }
 
-void communicate(int fd)
+void *threadfunc(void *arg)
 {
-	char file[NMMAX + 1];
+	int fd;
 	char buf[CHUNKSIZE + 1];
+	thread_arg *targ = (thread_arg *) arg;
+	sigset_t mask;
+	sigemptyset(&mask);
+	sigaddset(&mask, SIGINT);
 
-	memset(file, 0x00, NMMAX + 1);
-	memset(buf, 0x00, CHUNKSIZE + 1);
-	fgets(file, NMMAX + 1, stdin);
-	if (file[strlen(file) - 1] == '\n')
-		file[strlen(file) - 1] = '\0';
-	if (bulk_write(fd, (void *) file, NMMAX + 1) < 0)
+	if (pthread_sigmask(SIG_BLOCK, &mask, NULL) != 0)
+		ERR("pthread_mask");
+
+	fd = connect_socket(targ->addr);
+
+	if (bulk_write(fd, (void *) targ->file, NMMAX + 1) < 0)
 		ERR("write");
 	if (bulk_read(fd, (void *) buf, CHUNKSIZE) < 0)
 		ERR("read");
-	if (TEMP_FAILURE_RETRY(close(fd)) < 0)
+	if (TEMP_FAILURE_RETRY(close(fd)) == -1)
 		ERR("close");
-	printf("%s", buf);
+
+	if (pthread_mutex_lock(targ->mutex) != 0)
+		ERR("pthread_mutex_lock");
+	printf("Content of %s:\n", targ->file);
+	printf("%s\n", buf);
+	if (pthread_mutex_unlock(targ->mutex) != 0)
+		ERR("pthread_mutex_unlock");
+	if (pthread_sigmask(SIG_UNBLOCK, &mask, NULL) != 0)
+		ERR("pthread_sigmask");
+
+	free(targ);
+	return NULL;
+}
+
+void dowork(struct sockaddr_in *addr, pthread_mutex_t *mutex)
+{
+	thread_arg *targ;
+	pthread_t thread;
+
+	while (work)
+	{
+		if ((targ = (thread_arg *) calloc (1, sizeof(thread_arg))) == NULL)
+			ERR("calloc");
+		targ->mutex = mutex;
+		targ->addr = addr;
+		fgets(targ->file, NMMAX + 1, stdin);
+		if (targ->file[strlen(targ->file) - 1] == '\n')
+			targ->file[strlen(targ->file) - 1] = '\0';
+		if (pthread_create(&thread, NULL, threadfunc, (void *) targ) != 0)
+			ERR("pthread_create");
+		if (pthread_detach(thread) != 0)
+			ERR("pthread_detach");
+	}
 }
 
 int main(int argc, char **argv)
 {
-	int fd;
+	pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+	struct sockaddr_in addr;
+
 	if (argc!=3)
 		usage(argv[0]);
 
 	sethandler(SIG_IGN, SIGPIPE);
-	fd = connect_socket(argv[1], atoi(argv[2]));
-	communicate(fd);
+	sethandler(siginthandler, SIGINT);
+	addr = make_address(argv[1], atoi(argv[2]));
+	dowork(&addr, &mutex);
+
 	return EXIT_SUCCESS;
 }

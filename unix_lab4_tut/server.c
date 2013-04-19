@@ -12,6 +12,7 @@
 #include <signal.h>
 #include <netdb.h>
 #include <pthread.h>
+#include <semaphore.h>
 #define ERR(source) (perror(source),\
 			  fprintf(stderr,"%s:%d\n",__FILE__,__LINE__),\
 			  exit(EXIT_FAILURE))
@@ -20,6 +21,7 @@
 #define CHUNKSIZE 500
 #define NMMAX 30
 #define THREAD_NUM 3
+#define FS_NUM 2
 
 #define ERRSTRING "No such file or directory\n"
 
@@ -33,6 +35,7 @@ typedef struct
 	int *condition;
 	pthread_cond_t *cond;
 	pthread_mutex_t *mutex;
+	sem_t *semaphore;
 } thread_arg;
 
 void siginthandler(int sig)
@@ -106,7 +109,7 @@ int make_socket(int domain, int type)
 	return sock;
 }
 
-void communicate(int clientfd)
+void communicate(int clientfd, thread_arg *targ)
 {
 	int fd;
 	ssize_t size;
@@ -117,6 +120,8 @@ void communicate(int clientfd)
 		ERR("read");
 	if (size == NMMAX + 1)
 	{
+		if (TEMP_FAILURE_RETRY(sem_wait(targ->semaphore)) == -1)
+			ERR("sem_wait");
 		if ((fd = TEMP_FAILURE_RETRY(open(filepath, O_RDONLY))) == -1)
 			sprintf(buffer, ERRSTRING);
 		else
@@ -125,6 +130,8 @@ void communicate(int clientfd)
 			if ((size = bulk_read(fd, buffer, CHUNKSIZE)) == -1)
 				ERR("read");
 		}
+		if (sem_post(targ->semaphore) == -1)
+			ERR("sem_post");
 		if (TEMP_FAILURE_RETRY(send(clientfd, buffer, CHUNKSIZE, 0)) == -1)
 			ERR("write");
 	}
@@ -159,21 +166,25 @@ void *threadfunc(void *arg)
 		(*targ.idlethreads)--;
 		clientfd = *targ.socket;
 		pthread_cleanup_pop(1);
-		communicate(clientfd);
+		communicate(clientfd, &targ);
 	}
 
 	return NULL;
 }
 
-void init(pthread_t *thread, thread_arg *targ, pthread_cond_t *cond, pthread_mutex_t *mutex, int *idlethreads, int *socket, int *condition)
+void init(pthread_t *thread, thread_arg *targ, sem_t *semaphore, pthread_cond_t *cond, pthread_mutex_t *mutex, int *idlethreads, int *socket, int *condition)
 {
 	int i;
+
+	if (sem_init(semaphore, 0, FS_NUM) != 0)
+		ERR("sem_init");
 
 	for (i = 0; i < THREAD_NUM; i++)
 	{
 		targ[i].id = i + 1;
 		targ[i].cond = cond;
 		targ[i].mutex = mutex;
+		targ[i].semaphore = semaphore;
 		targ[i].idlethreads = idlethreads;
 		targ[i].socket = socket;
 		targ[i].condition = condition;
@@ -259,6 +270,16 @@ void dowork(int socket, pthread_t *thread, thread_arg *targ, pthread_cond_t *con
 	}
 }
 
+void pcleanup(sem_t *semaphore, pthread_mutex_t *mutex, pthread_cond_t *cond)
+{
+	if (sem_destroy(semaphore) != 0)
+		ERR("sem_destroy");
+	if (pthread_mutex_destroy(mutex) != 0)
+		ERR("pthread_mutex_destroy");
+	if (pthread_cond_destroy(cond) != 0)
+		ERR("pthread_cond_destroy");
+}
+
 int main(int argc, char **argv)
 {
 	int i, condition = 0, socket, new_flags, cfd, idlethreads = 0;
@@ -267,6 +288,7 @@ int main(int argc, char **argv)
 	pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
 	pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 	sigset_t mask, oldmask;
+	sem_t semaphore;
 
 	if (argc!=3)
 		usage(argv[0]);
@@ -282,13 +304,14 @@ int main(int argc, char **argv)
 	new_flags = fcntl(socket, F_GETFL) | O_NONBLOCK;
 	if (fcntl(socket, F_SETFL, new_flags) == -1)
 		ERR("fcntl");
-	init(thread, targ, &cond, &mutex, &idlethreads, &cfd, &condition);
+	init(thread, targ, &semaphore, &cond, &mutex, &idlethreads, &cfd, &condition);
 	dowork(socket, thread, targ, &cond, &mutex, &idlethreads, &cfd, &oldmask, &condition);
 	if (pthread_cond_broadcast(&cond) != 0)
 		ERR("pthread_cond_broadcast");
 	for (i = 0; i < THREAD_NUM; i++)
 		if (pthread_join(thread[i], NULL) != 0)
 			ERR("pthread_join");
+	pcleanup(&semaphore, &mutex, &cond);
 	if (TEMP_FAILURE_RETRY(close(socket)) < 0)
 		ERR("close");
 	return EXIT_SUCCESS;
