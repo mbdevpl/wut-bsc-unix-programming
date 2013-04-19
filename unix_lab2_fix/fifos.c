@@ -10,6 +10,7 @@
 #include <signal.h>
 #include <string.h>
 
+/* CORRECTED */ // split declarations from code
 #include "mbdev_unix.h"
 
 #define MSG_SIZE (PIPE_BUF - sizeof(pid_t))
@@ -17,14 +18,19 @@
 #define MIN_K 1
 #define MAX_K 100
 
+/* CORRECTED */
 //#define MIN_TIME 1
 #define MIN_TIME 1000
 //#define MAX_TIME 2
 #define MAX_TIME 2000
 
+/* CORRECTED */
+#define SYMBOL_LOW 'a'
+#define SYMBOL_HIGH 'z'
+
 #define DEBUG_OUT 0
 
-// undefine this to restore sequential reading
+/* CORRECTED */ // undefine this to restore sequential reading
 #define USE_SELECT
 
 void usage(void)
@@ -38,56 +44,59 @@ void usage(void)
 
 void handler_sigchld(int sig)
 {
-   pid_t pid;
-   for(;;)
-   {
-      pid = waitpid(0, NULL, WNOHANG);
-      if(pid == 0)
-         return;
-      else if(pid < 0)
-      {
-         if(errno == ECHILD)
-            return; // last child exitted
-         exitWithError("main waitpid");
-      }
-      else
-      {
-         if(DEBUG_OUT) printf("%d exits.\n", pid);
-      }
-   }
+	pid_t pid;
+	for(;;)
+	{
+		pid = waitpid(0, NULL, WNOHANG);
+		if(pid == 0)
+			return;
+		else if(pid < 0)
+		{
+			if(errno == ECHILD)
+				return; // last child exitted
+			exitWithError("main waitpid");
+		}
+		else
+		{
+			if(DEBUG_OUT) printf("%d exits.\n", pid);
+		}
+	}
 }
 
+/* CORRECTED */
 //void parent_work(int fifo)
 void parent_work(/*int fifo,*/ int* pipes, int expected)
 {
 	int64_t  count;
 	char buffer[PIPE_BUF];
 	do
-   {
+	{
+		/* CORRECTED */
 		//count=bulk_read(fifo,buffer,PIPE_BUF);
 		//if(count < 0)
-      //   exitWithError("fifo read");
+		//   exitWithError("fifo read");
 
-      if(DEBUG_OUT) fprintf(stderr,"parent has pipes: read=%d and write=%d\n", pipes[0], pipes[1]);
-      count=bulk_read(pipes[0],buffer,PIPE_BUF);
+		if(DEBUG_OUT) fprintf(stderr,"parent has pipes: read=%d and write=%d\n", pipes[0], pipes[1]);
+		count=bulk_read(pipes[0],buffer,PIPE_BUF);
 		if(count < 0)
-         exitWithError("pipe read");
+			exitWithError("pipe read");
 
 		if(count > 0)
-      {
+		{
 			printf("<block from subproces %d>\n%s\n</block>\n",
-				*(pid_t*)buffer, buffer+sizeof(pid_t));
+					 *(pid_t*)buffer, buffer+sizeof(pid_t));
 		}
 
-      if(count >= expected)
-         break;
-      else if(DEBUG_OUT) fprintf(stderr,"count=%lld is less than expected=%d\n", count, expected);
+		if(count >= expected)
+			break;
+		else if(DEBUG_OUT) fprintf(stderr,"count=%lld is less than expected=%d\n", count, expected);
 
-      //if(DEBUG_OUT) fprintf(stderr,"wat.\n");
+		//if(DEBUG_OUT) fprintf(stderr,"wat.\n");
 	}
-   while(count == PIPE_BUF);
+	while(count == PIPE_BUF);
 }
 
+/* CORRECTED */
 //void child_work(int fifo, int64_t count)
 void child_work(/*int fifo,*/ int64_t count, int* pipes)
 {
@@ -101,53 +110,58 @@ void child_work(/*int fifo,*/ int64_t count, int* pipes)
 	if(DEBUG_OUT) fprintf(stderr,"%d works\n", getpid());
 
 	srand(getpid());
+	/* CORRECTED */
 	//sleepFor(rand()%(MAX_TIME-MIN_TIME+1)+MIN_TIME);
-   milisleepFor(rand()%(MAX_TIME-MIN_TIME+1)+MIN_TIME);
+	milisleepFor(rand()%(MAX_TIME-MIN_TIME+1)+MIN_TIME);
 
-   for(i=0;i<count;++i)
-      buf[i] = (char)(rand()%('z'-'a')+'a');
+	for(i=0;i<count;++i)
+		buf[i] = (char)(rand()%((SYMBOL_HIGH-SYMBOL_LOW)+1)+SYMBOL_LOW);
 
-   if(DEBUG_OUT) fprintf(stderr,"%d has pipes: read=%d and write=%d\n", getpid(), pipes[0], pipes[1]);
+	if(DEBUG_OUT) fprintf(stderr,"%d has pipes: read=%d and write=%d\n", getpid(), pipes[0], pipes[1]);
 
-   if(count < MSG_SIZE)
-      memset(buf+count,0,MSG_SIZE-count);
-   if(count > 0)
-   {
-      //if(bulk_write(fifo,buffer,PIPE_BUF)<0){
-      //perror("Write:");
-      //exit(EXIT_FAILURE);
-      //}
-      if(DEBUG_OUT) fprintf(stderr,"%d writes %s\n", getpid(), buf);
-      if(bulk_write(pipes[1],buffer,PIPE_BUF)<0)
-         exitWithError("pipe writing");
+	if(count < MSG_SIZE)
+		memset(buf+count,0,MSG_SIZE-count);
+	if(count > 0)
+	{
+		/* CORRECTED */
+		//if(bulk_write(fifo,buffer,PIPE_BUF)<0){
+		//perror("Write:");
+		//exit(EXIT_FAILURE);
+		//}
+		if(DEBUG_OUT) fprintf(stderr,"%d writes %s\n", getpid(), buf);
+		if(bulk_write(pipes[1],buffer,PIPE_BUF)<0)
+			exitWithError("pipe writing");
 
-      if(TEMP_FAILURE_RETRY(close(pipes[1]))) ERR("close");
-   }
+		if(TEMP_FAILURE_RETRY(close(pipes[1]))) ERR("close");
+	}
 }
 
 void writersCreationLoop(int childrenCount, char** argv, int* pipes)
 {
 	int i;
-   for(i = 0; i < childrenCount; ++i)
+	for(i = 0; i < childrenCount; ++i)
 	{
-      if(pipe(pipes + 2*i)<0)
-         ERR("pipe");
+		if(pipe(pipes + 2*i)<0)
+			ERR("pipe");
 
 		int pid = fork();
 
 		if(pid > 0)
 		{
+			/* CORRECTED */
 			//fifos[i] = pid;
 
 			if(DEBUG_OUT) fprintf(stderr,"added child %d\n", pid);
 
-         if(TEMP_FAILURE_RETRY(close(*(pipes + 2*i + 1)))) ERR("close");
+			if(TEMP_FAILURE_RETRY(close(*(pipes + 2*i + 1)))) ERR("close");
 		}
+		/* CORRECTED */
 		//else if(pid == 0)
-			//fifos[i] = getpid();
+		//fifos[i] = getpid();
 
 		if(pid == 0)
 		{
+			/* CORRECTED */
 			//int len = sizeof(char)*32;
 			//char* fifoName = (char*)malloc(len);
 			//memset(fifoName, 0, len);
@@ -161,12 +175,12 @@ void writersCreationLoop(int childrenCount, char** argv, int* pipes)
 			//if(DEBUG_OUT) fprintf(stderr,"child will open fifo to write: %s\n", fifoName);
 
 			//fifo = openfifo(fifoName,O_WRONLY);
-         //free(fifoName);
+			//free(fifoName);
 
 			//child_work(fifo, atoi(argv[i+1]));
-         child_work(/*fifo,*/ atoi(argv[i+1]), pipes + 2*i);
+			child_work(/*fifo,*/ atoi(argv[i+1]), pipes + 2*i);
 
-         exitNormal();
+			exitNormal();
 		}
 	}
 
@@ -174,19 +188,20 @@ void writersCreationLoop(int childrenCount, char** argv, int* pipes)
 
 void readersLoop(int childrenCount, char** argv, int* pipes)
 {
-   int i, j;
+	int i, j;
 
 #ifdef USE_SELECT
-   fd_set pipesToRead;
-   int read[childrenCount];
-   for(i=0; i < childrenCount; ++i)
-      read[i] = 0;
-   int maxPipeId = *(pipes + 2*(childrenCount-1));
-   if(DEBUG_OUT) fprintf(stderr,"maxPipeId is %d\n", maxPipeId);
+	fd_set pipesToRead;
+	int read[childrenCount];
+	for(i=0; i < childrenCount; ++i)
+		read[i] = 0;
+	int maxPipeId = *(pipes + 2*(childrenCount-1));
+	if(DEBUG_OUT) fprintf(stderr,"maxPipeId is %d\n", maxPipeId);
 #endif
 
-   for(i=0; i < childrenCount; ++i)
+	for(i=0; i < childrenCount; ++i)
 	{
+		/* CORRECTED */
 		//int len = sizeof(char)*32;
 		//char* fifoName = (char*)malloc(len);
 		//memset(fifoName, 0, len)   ;
@@ -203,83 +218,86 @@ void readersLoop(int childrenCount, char** argv, int* pipes)
 		//fifos[i] = openfifo(fifoName,O_RDONLY);
 
 #ifdef USE_SELECT
-      // prepare set of pipes to select from
-      FD_ZERO(&pipesToRead);
-      for(j=childrenCount-1; j>=0; --j)
-         if(!read[j])
-         {
-            FD_SET(*(pipes + 2*j), &pipesToRead);
-            if(DEBUG_OUT) fprintf(stderr,"added %d to fd_set\n", *(pipes + 2*j));
-         }
+		// prepare set of pipes to select from
+		FD_ZERO(&pipesToRead);
+		for(j=childrenCount-1; j>=0; --j)
+			if(!read[j])
+			{
+				FD_SET(*(pipes + 2*j), &pipesToRead);
+				if(DEBUG_OUT) fprintf(stderr,"added %d to fd_set\n", *(pipes + 2*j));
+			}
 
-      // select pipe
-      int pipeCountToRead = select(maxPipeId + 1, &pipesToRead, NULL, NULL, NULL);
-      if(pipeCountToRead == 0)
-      {
-         // somehow timeout happened...
-         --i;
-         continue;
-      }
-      else if(pipeCountToRead < 0)
-      {
-         if(errno == EINTR)
-         {
-            if(DEBUG_OUT) fprintf(stderr,"wat.\n");
-            --i;
-            continue;
-         }
-         switch(pipeCountToRead)
-         {
-         case ENOMEM: ERR("select() internal alloc error");
-         case EBADF: ERR("ebdaf");
-         case EINVAL: ERR("einval");
-         default: ERR("u wat m8");
-         }
-      }
+		// select pipe
+		int pipeCountToRead = select(maxPipeId + 1, &pipesToRead, NULL, NULL, NULL);
+		if(pipeCountToRead == 0)
+		{
+			// somehow timeout happened...
+			--i;
+			continue;
+		}
+		else if(pipeCountToRead < 0)
+		{
+			if(errno == EINTR)
+			{
+				if(DEBUG_OUT) fprintf(stderr,"wat.\n");
+				--i;
+				continue;
+			}
+			switch(pipeCountToRead)
+			{
+			case ENOMEM: ERR("select() internal alloc error");
+			case EBADF: ERR("ebdaf");
+			case EINVAL: ERR("einval");
+			default: ERR("u wat m8");
+			}
+		}
 
-      // actually find a pipe that is ready to be read
-      int n;
-      for(n=childrenCount-1; n>=0; --n)
-      {
-         int currPipe = *(pipes + 2*n);
-         if(FD_ISSET(currPipe, &pipesToRead))
-         {
-            //FD_CLR(currPipe, pipesToRead);
-            if(DEBUG_OUT) fprintf(stderr,"found pipe %d\n", currPipe);
+		// actually find a pipe that is ready to be read
+		int n;
+		for(n=childrenCount-1; n>=0; --n)
+		{
+			int currPipe = *(pipes + 2*n);
+			if(FD_ISSET(currPipe, &pipesToRead))
+			{
+				//FD_CLR(currPipe, pipesToRead);
+				if(DEBUG_OUT) fprintf(stderr,"found pipe %d\n", currPipe);
 
-            if(currPipe == maxPipeId)
-               maxPipeId = *(pipes + 2*(n-1));
-            break;
-         }
-      }
+				if(currPipe == maxPipeId)
+					maxPipeId = *(pipes + 2*(n-1));
+				break;
+			}
+		}
 
-      // at last, read
-      parent_work(/*fifos[i],*/ pipes + 2*n, atoi(argv[n+1]));
-      if(TEMP_FAILURE_RETRY(close(*(pipes + 2*n)))) ERR("close");
-      read[n] = 1;
+		// at last, read
+		parent_work(/*fifos[i],*/ pipes + 2*n, atoi(argv[n+1]));
+		if(TEMP_FAILURE_RETRY(close(*(pipes + 2*n)))) ERR("close");
+		read[n] = 1;
 #else
-      parent_work(/*fifos[i],*/ pipes + 2*i, atoi(argv[i+1]));
-      if(TEMP_FAILURE_RETRY(close(*(pipes + 2*i)))) ERR("close");
+		parent_work(/*fifos[i],*/ pipes + 2*i, atoi(argv[i+1]));
+		if(TEMP_FAILURE_RETRY(close(*(pipes + 2*i)))) ERR("close");
 #endif
 
+		/* CORRECTED */
 		//closefifo(fifos[i]);
 
 		//unlinkfifo(fifoName);
-      //free(fifoName);
+		//free(fifoName);
 
-      //remaining = 0;
+		//remaining = 0;
 	}
 
-   //free(fifos);
+	//free(fifos);
 }
 
 int main(int argc, char** argv)
 {
+	/* CORRECTED */
 	//int fifo;
 	int childrenCount = argc - 1;
 	//int* fifos = (int*)malloc(sizeof(int)*MAX_K);
-   int pipes[childrenCount * 2];
+	int pipes[childrenCount * 2];
 
+	/* CORRECTED */
 	//if(argc < 1 + MIN_K || argc > 1 + MAX_K)
 	if(childrenCount < MIN_K || childrenCount > MAX_K)
 	{
@@ -289,12 +307,15 @@ int main(int argc, char** argv)
 
 	if(DEBUG_OUT) fprintf(stderr,"children count %d\n", childrenCount);
 
-   if(setSigHandler(handler_sigchld, SIGCHLD))
-      exitWithError("main sigaction-SIGCHLD");
+	if(setSigHandler(handler_sigchld, SIGCHLD))
+		exitWithError("main sigaction-SIGCHLD");
 
-   writersCreationLoop(childrenCount, argv, pipes);
+	/* CORRECTED */ // split main because it was too large
+	writersCreationLoop(childrenCount, argv, pipes);
 
-   readersLoop(childrenCount, argv, pipes);
+	readersLoop(childrenCount, argv, pipes);
+
+	while(TEMP_FAILURE_RETRY(wait(NULL)) > 0);
 
 	return EXIT_SUCCESS;
 }
