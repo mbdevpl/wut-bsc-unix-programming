@@ -127,7 +127,7 @@ void child_work(/*int fifo,*/ int64_t count, int* pipes)
 
 void writersCreationLoop(int childrenCount, char** argv, int* pipes)
 {
-   int i;
+	int i;
    for(i = 0; i < childrenCount; ++i)
 	{
       if(pipe(pipes + 2*i)<0)
