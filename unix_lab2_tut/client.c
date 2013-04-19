@@ -9,10 +9,14 @@
 #include <limits.h>
 #include <signal.h>
 #include <string.h>
+
+#include "common.h"
+#include "mbdev_unix.h"
+
 #define MSG_SIZE (PIPE_BUF - sizeof(pid_t))
 
 void usage(void){
-	fprintf(stderr,"USAGE: client fifo_file file \n");
+	fprintf(stderr,"USAGE: param1 param2 ... paramN \n where N is in [1..100]\n");
 }
 
 int sethandler( void (*f)(int), int sigNo) {
@@ -78,9 +82,12 @@ void write_to_fifo(int fifo, int file){
 	}while(count==MSG_SIZE);
 }
 
+#define MIN_K 1
+#define MAX_K 100
+
 int main(int argc, char** argv) {
 	int fifo,file;
-	if(argc!=3) {
+	if(argc < 1 + MIN_K || argc > 1 + MAX_K) {
 		usage();
 		return EXIT_FAILURE;
 	}
