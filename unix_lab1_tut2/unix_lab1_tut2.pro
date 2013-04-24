@@ -6,7 +6,11 @@ CONFIG += console
 CONFIG -= qt
 
 SOURCES += \
-    signals.c
+	signals.c \
 
 HEADERS += \
-    mbdev_unix.h
+	mbdev_unix.h \
+
+OTHER_FILES += \
+	Makefile \
+	.gitignore \

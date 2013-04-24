@@ -13,4 +13,6 @@ HEADERS += \
 	mbdev_unix.h \
 	common.h \
 
-OTHER_FILES += Makefile
+OTHER_FILES += \
+	Makefile \
+	.gitignore \

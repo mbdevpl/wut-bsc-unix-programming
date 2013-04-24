@@ -9,4 +9,6 @@ SOURCES += main.c
 
 HEADERS += mbdev_unix.h
 
-OTHER_FILES += Makefile
+OTHER_FILES += \
+	Makefile \
+	.gitignore \
