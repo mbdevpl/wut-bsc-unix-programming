@@ -123,6 +123,20 @@ const char* sigToStr(int sig)
 #undef IFEQUAL_VARNAMETOSTR
 
 
+void handlerSigchldDefault(int sig)
+{
+	pid_t pid;
+	for(;;){
+		pid=waitpid(0, NULL, WNOHANG);
+		if(0==pid) return;
+		if(0>=pid) {
+			if(ECHILD==errno) return;
+			ERR("waitpid:");
+		}
+	}
+}
+
+
 /*!
  * \brief Exits the process with EXIT_FAILURE and message.
  */
@@ -209,6 +223,14 @@ int64_t bulk_write(int fd, char* buf, size_t count)
 }
 
 
+void addFlags(int descriptor, int addedFlags)
+{
+	int flags = fcntl(descriptor, F_GETFL);
+	flags |= addedFlags;
+	fcntl(descriptor, F_SETFL, flags);
+}
+
+
 void makefifo(char* arg)
 {
 	if(mkfifo(arg, S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP)<0)
@@ -249,6 +271,40 @@ void unlinkfifo(char* arg)
 	if(unlink(arg) < 0)
 	{
 		perror("Remove fifo");
+		exit(EXIT_FAILURE);
+	}
+}
+
+
+struct sockaddr_in make_address(char* address, uint16_t port)
+{
+	struct sockaddr_in addr;
+	struct hostent* hostinfo;
+
+	addr.sin_family = AF_INET;
+	addr.sin_port = htons(port);
+	hostinfo = gethostbyname(address);
+	if(hostinfo == NULL)
+		HERR("gethostbyname");
+	addr.sin_addr = *(struct in_addr*) hostinfo->h_addr;
+
+	return addr;
+}
+
+int makeSocket(int domain, int type)
+{
+	int sock;
+	sock = socket(domain, type, 0);
+	if(sock < 0)
+		ERR("socket");
+	return sock;
+}
+
+void closeSocket(int socket)
+{
+	if(TEMP_FAILURE_RETRY(close(socket)) < 0)
+	{
+		perror("Close socket");
 		exit(EXIT_FAILURE);
 	}
 }

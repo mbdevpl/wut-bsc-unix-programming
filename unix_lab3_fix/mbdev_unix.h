@@ -30,6 +30,10 @@
 #include <signal.h>
 #include <time.h>
 
+#include <sys/un.h>
+#include <sys/socket.h>
+#include <netdb.h>
+
 #ifndef TEMP_FAILURE_RETRY
 /*!
  * \brief Used to uninterrupted read/write.
@@ -50,11 +54,15 @@
 	perror(source),kill(0,SIGTERM), \
 	exit(EXIT_FAILURE))
 
+#define HERR(source) (fprintf(stderr,"%s(%d) at %s:%d\n",source,h_errno,__FILE__,__LINE__), \
+	exit(EXIT_FAILURE))
+
 void reverse(char* s);
 const char* itoa(int n, char* s);
 
 int setSigHandler( void (*f)(int), int sigNo);
 const char* sigToStr(int sig);
+void handlerSigchldDefault(int sig);
 
 void exitWithError(const char* errorMsg);
 void exitNormal();
@@ -65,9 +73,15 @@ void milisleepFor(int t);
 int64_t bulk_read(int fd, char* buf, size_t count);
 int64_t bulk_write(int fd, char* buf, size_t count);
 
+void addFlags(int descriptor, int addedFlags);
+
 void makefifo(char* arg);
 int openfifo(char* arg, int flags);
 void unlinkfifo(char* arg);
 void closefifo(int fifo);
+
+struct sockaddr_in make_address(char* address, uint16_t port);
+int makeSocket(int domain, int type);
+void closeSocket(int socket);
 
 #endif // MBDEV_UNIX_H
