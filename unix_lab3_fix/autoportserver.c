@@ -15,20 +15,6 @@ void handlerSigint(int sig)
 	last_signal=sig;
 }
 
-int bind_local_socket(char *name)
-{
-	struct sockaddr_un addr;
-	int socketfd;
-	if(unlink(name) < 0 && errno != ENOENT) ERR("unlink");
-	socketfd = makeSocket(PF_UNIX,SOCK_STREAM);
-	memset(&addr, 0, sizeof(struct sockaddr_un));
-	addr.sun_family = AF_UNIX;
-	strncpy(addr.sun_path,name,sizeof(addr.sun_path)-1);
-	if(bind(socketfd,(struct sockaddr*) &addr,SUN_LEN(&addr)) < 0)  ERR("bind");
-	if(listen(socketfd, BACKLOG) < 0) ERR("listen");
-	return socketfd;
-}
-
 int bind_inet_socket(uint16_t port,int type)
 {
 	struct sockaddr_in addr;
@@ -43,7 +29,7 @@ int bind_inet_socket(uint16_t port,int type)
 	if (setsockopt(socketfd, SOL_SOCKET, SO_REUSEADDR,&t, sizeof(t)))
 		ERR("setsockopt");
 
-	if(bind(socketfd,(struct sockaddr*) &addr,sizeof(addr)) < 0)
+	if(bind(socketfd, (struct sockaddr*)&addr, sizeof(addr)) < 0)
 	{
 		switch(type)
 		{
