@@ -1,22 +1,21 @@
-MiNI UNIX labs {#mainpage}
-==============
+WUT - UNIX programming
+======================
 
-by Mateusz Bysiek and others
-of Faculty of Mathematics and Information Sciences
-at Warsaw University of Technology
+Solutions to tasks for UNIX programming course
+from my Bachelor studies at Warsaw University of Technology.
 
-## Description
+Mateusz Bysiek
 
-Solved tasks from the UNIX programming 2011/12/13
-during my and my colleagues' studies at the above mentioned faculty.
+Warsaw, Poland, 2012
 
-Directories ending with <code>tut</code> are training exercises (not graded),
-<code>retake</code> and <code>fix</code> are corrections of the graded tasks.
 
-## License
+explanation
+-----------
 
-GNU General Public License version 3 (or at your option any later version)
+Directories with names containing <code>tut</code> are training exercises (not graded).
 
-for details see <code>LICENSE.md</code>
-and <code>http://www.gnu.org/licenses/</code>
+The ones with names containing <code>retake</code> and <code>fix</code> are corrections
+of the graded tasks.
 
+Directories with names containing <code>others</code> might include additional files
+by other authors from years 2011, 2012 and 2013 of the same course.
